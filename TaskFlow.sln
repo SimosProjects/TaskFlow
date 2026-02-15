@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TaskFlow.Api", "TaskFlow.Api\TaskFlow.Api.csproj", "{BEA9D7D0-3382-4017-80B4-1216E73F66D1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TaskFlow.Api", "TaskFlow.Api\TaskFlow.Api.csproj", "{17FDB5FC-2EE7-41B7-9A67-B4247011D628}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -14,9 +14,9 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{BEA9D7D0-3382-4017-80B4-1216E73F66D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BEA9D7D0-3382-4017-80B4-1216E73F66D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BEA9D7D0-3382-4017-80B4-1216E73F66D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BEA9D7D0-3382-4017-80B4-1216E73F66D1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{17FDB5FC-2EE7-41B7-9A67-B4247011D628}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{17FDB5FC-2EE7-41B7-9A67-B4247011D628}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{17FDB5FC-2EE7-41B7-9A67-B4247011D628}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{17FDB5FC-2EE7-41B7-9A67-B4247011D628}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
