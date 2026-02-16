@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TaskFlow.Api.Domain;
+using TaskFlow.Api.DTOs;
 using TaskFlow.Api.Services;
 
 namespace TaskFlow.Api.Controllers;
@@ -10,32 +11,75 @@ public class TasksController : ControllerBase
 {
     private readonly ITaskService _taskService;
 
+    /// <summary>
+    /// Initializes the controller with the task service abstraction.
+    /// Constructor injection keeps dependencies explicit and supports unit testing.
+    /// </summary>
     public TasksController(ITaskService taskService)
     {
         _taskService = taskService;
     }
 
+    /// <summary>
+    /// Retrieves all tasks.
+    /// This endpoint is intentionally thin; business logic and data access belong in the service layer.
+    /// </summary>
     [HttpGet]
-    public ActionResult<IEnumerable<TaskItem>> GetAll()
-        => Ok(_taskService.GetAll());
+    [ProducesResponseType(typeof(IEnumerable<TaskResponse>), StatusCodes.Status200OK)]
+    public ActionResult<IEnumerable<TaskResponse>> GetAll()
+        => Ok(_taskService.GetAll().Select(MapToResponse));
 
+    /// <summary>
+    /// Retrieves a single task by its identifier.
+    /// Returns 404 when the task does not exist to preserve clear REST semantics.
+    /// </summary>
     [HttpGet("{id:guid}")]
-    public ActionResult<TaskItem> GetById(Guid id)
+    [ProducesResponseType(typeof(TaskResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<TaskResponse> GetById(Guid id)
     {
         var task = _taskService.GetById(id);
-        return task is null ? NotFound() : Ok(task);
+        return task is null ? NotFound() : Ok(MapToResponse(task));
     }
 
+    /// <summary>
+    /// Creates a new task using the request DTO as the API boundary.
+    /// Model validation is enforced by [ApiController] + DataAnnotations (400 is returned automatically on invalid input).
+    /// </summary>
     [HttpPost]
-    public ActionResult<TaskItem> Create([FromBody] CreateTaskRequest request)
+    [ProducesResponseType(typeof(TaskResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public ActionResult<TaskResponse> Create([FromBody] CreateTaskRequest request)
     {
+        // API contract is validated at the boundary; domain logic stays in the service layer.
         var task = _taskService.Create(request.Title, request.Description);
-        return CreatedAtAction(nameof(GetById), new { id = task.Id }, task);
+
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = task.Id },
+            MapToResponse(task));
     }
 
+    /// <summary>
+    /// Marks a task as completed.
+    /// Returns 204 on success (no response body) and 404 if the task does not exist.
+    /// </summary>
     [HttpPost("{id:guid}/complete")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult Complete(Guid id)
         => _taskService.Complete(id) ? NoContent() : NotFound();
-}
 
-public record CreateTaskRequest(string Title, string? Description);
+    /// <summary>
+    /// Maps an internal domain model to an external response DTO.
+    /// Keeping mapping explicit prevents leaking domain internals into the public API contract.
+    /// </summary>
+    private static TaskResponse MapToResponse(TaskItem task) => new()
+    {
+        Id = task.Id,
+        Title = task.Title,
+        Description = task.Description,
+        IsCompleted = task.IsCompleted,
+        CreatedAtUtc = task.CreatedAtUtc
+    };
+}
