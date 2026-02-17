@@ -1,29 +1,30 @@
 using System.Net;
-using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 
 namespace TaskFlow.Api.Middleware;
 
 /// <summary>
 /// Global exception handling middleware.
 /// 
-/// Centralizes error handling and ensures consistent API error responses.
+/// Centralizes error handling and ensures consistent RFC 7807
+/// ProblemDetails responses across the API.
 /// </summary>
 public class ExceptionHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionHandlingMiddleware> _logger;
 
-    /// <summary>
-    /// Constructs the middleware with the next pipeline delegate and a logger.
-    /// </summary>
-    public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
+    public ExceptionHandlingMiddleware(
+        RequestDelegate next,
+        ILogger<ExceptionHandlingMiddleware> logger)
     {
         _next = next;
         _logger = logger;
     }
 
     /// <summary>
-    /// Invokes the next middleware and catches any unhandled exceptions.
+    /// Invokes the next middleware and maps known exceptions
+    /// to appropriate HTTP ProblemDetails responses.
     /// </summary>
     public async Task InvokeAsync(HttpContext context)
     {
@@ -31,19 +32,48 @@ public class ExceptionHandlingMiddleware
         {
             await _next(context);
         }
+        catch (ArgumentException ex)
+        {
+            _logger.LogInformation(ex, "Validation failure: {Message}", ex.Message);
+
+            await WriteProblemDetailsAsync(
+                context,
+                HttpStatusCode.BadRequest,
+                title: "Invalid request",
+                detail: ex.Message);
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception occurred while processing the request.");
+            _logger.LogError(ex, "Unhandled exception occurred.");
 
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            context.Response.ContentType = "application/json";
-
-            var payload = new
-            {
-                message = "An unexpected error occurred."
-            };
-
-            await context.Response.WriteAsync(JsonSerializer.Serialize(payload));
+            await WriteProblemDetailsAsync(
+                context,
+                HttpStatusCode.InternalServerError,
+                title: "Server error",
+                detail: "An unexpected error occurred.");
         }
+    }
+
+    /// <summary>
+    /// Writes a standardized RFC 7807 ProblemDetails response.
+    /// </summary>
+    private static Task WriteProblemDetailsAsync(
+        HttpContext context,
+        HttpStatusCode statusCode,
+        string title,
+        string detail)
+    {
+        context.Response.StatusCode = (int)statusCode;
+        context.Response.ContentType = "application/problem+json";
+
+        var problem = new ProblemDetails
+        {
+            Status = (int)statusCode,
+            Title = title,
+            Detail = detail,
+            Instance = context.Request.Path
+        };
+
+        return context.Response.WriteAsJsonAsync(problem);
     }
 }

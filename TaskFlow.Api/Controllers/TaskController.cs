@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using TaskFlow.Api.Domain;
 using TaskFlow.Api.DTOs;
 using TaskFlow.Api.Services;
 
@@ -27,7 +26,7 @@ public class TasksController : ControllerBase
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<TaskResponse>), StatusCodes.Status200OK)]
     public ActionResult<IEnumerable<TaskResponse>> GetAll()
-        => Ok(_taskService.GetAll().Select(MapToResponse));
+        => Ok(_taskService.GetAll().Select(TaskMapping.ToResponse));
 
     /// <summary>
     /// Retrieves a single task by its identifier.
@@ -39,7 +38,7 @@ public class TasksController : ControllerBase
     public ActionResult<TaskResponse> GetById(Guid id)
     {
         var task = _taskService.GetById(id);
-        return task is null ? NotFound() : Ok(MapToResponse(task));
+        return task is null ? NotFound() : Ok(TaskMapping.ToResponse(task));
     }
 
     /// <summary>
@@ -57,7 +56,7 @@ public class TasksController : ControllerBase
         return CreatedAtAction(
             nameof(GetById),
             new { id = task.Id },
-            MapToResponse(task));
+            TaskMapping.ToResponse(task));
     }
 
     /// <summary>
@@ -69,17 +68,4 @@ public class TasksController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult Complete(Guid id)
         => _taskService.Complete(id) ? NoContent() : NotFound();
-
-    /// <summary>
-    /// Maps an internal domain model to an external response DTO.
-    /// Keeping mapping explicit prevents leaking domain internals into the public API contract.
-    /// </summary>
-    private static TaskResponse MapToResponse(TaskItem task) => new()
-    {
-        Id = task.Id,
-        Title = task.Title,
-        Description = task.Description,
-        IsCompleted = task.IsCompleted,
-        CreatedAtUtc = task.CreatedAtUtc
-    };
 }

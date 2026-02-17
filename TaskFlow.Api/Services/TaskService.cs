@@ -9,11 +9,15 @@ namespace TaskFlow.Api.Services;
 /// It is intentionally registered as a Singleton because it maintains
 /// in-memory state for the lifetime of the application.
 /// 
-/// In a production system, this would likely be backed by a database
-/// and registered with a Scoped lifetime.
 /// </summary>
 public class TaskService : ITaskService
 {
+    // Lock object guarding the in-memory task store.
+    // ASP.NET Core processes requests concurrently, and because this
+    // service is registered as a Singleton, shared state must be synchronized.
+    private readonly object _gate = new();
+
+
     // In-memory storage for tasks.
     // Because this service is registered as a Singleton,
     // this list persists for the lifetime of the application.
@@ -21,16 +25,27 @@ public class TaskService : ITaskService
 
     /// <summary>
     /// Retrieves all tasks currently stored in memory.
-    /// No filtering or paging is applied at this stage.
+    /// Returns a snapshot to avoid exposing internal mutable state.
     /// </summary>
-    public IEnumerable<TaskItem> GetAll() => _tasks;
+    public IEnumerable<TaskItem> GetAll()
+    {
+        lock (_gate)
+        {
+            return _tasks.ToList();
+        }
+    }
 
     /// <summary>
     /// Retrieves a task by its unique identifier.
     /// Returns null when no matching task exists.
     /// </summary>
     public TaskItem? GetById(Guid id)
-        => _tasks.FirstOrDefault(t => t.Id == id);
+    {
+        lock (_gate)
+        {
+            return _tasks.FirstOrDefault(t => t.Id == id);
+        }
+    }
 
     /// <summary>
     /// Creates a new task and stores it in memory.
@@ -40,8 +55,11 @@ public class TaskService : ITaskService
     {
         var task = new TaskItem(title, description);
 
-        // Business decision: tasks are stored immediately upon creation.
-        _tasks.Add(task);
+        lock (_gate)
+        {
+            // Business decision: tasks are stored immediately upon creation.
+            _tasks.Add(task);
+        }
 
         return task;
     }
@@ -52,13 +70,16 @@ public class TaskService : ITaskService
     /// </summary>
     public bool Complete(Guid id)
     {
-        var task = GetById(id);
-        if (task is null)
-            return false;
+        lock (_gate)
+        {
+            var task = _tasks.FirstOrDefault(t => t.Id == id);
+            if (task is null)
+                return false;
 
-        // Business behavior is expressed through the domain model.
-        task.MarkComplete();
+            // Business behavior is expressed through the domain model.
+            task.MarkComplete();
 
-        return true;
+            return true;
+        }
     }
 }
