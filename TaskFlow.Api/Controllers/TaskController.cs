@@ -25,6 +25,7 @@ public class TasksController : ControllerBase
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<TaskResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public ActionResult<IEnumerable<TaskResponse>> GetAll()
         => Ok(_taskService.GetAll().Select(TaskMapping.ToResponse));
 
@@ -35,6 +36,7 @@ public class TasksController : ControllerBase
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(TaskResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public ActionResult<TaskResponse> GetById(Guid id)
     {
         var task = _taskService.GetById(id);
@@ -47,16 +49,16 @@ public class TasksController : ControllerBase
     /// </summary>
     [HttpPost]
     [ProducesResponseType(typeof(TaskResponse), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public ActionResult<TaskResponse> Create([FromBody] CreateTaskRequest request)
     {
-        // API contract is validated at the boundary; domain logic stays in the service layer.
         var task = _taskService.Create(request.Title, request.Description);
 
         return CreatedAtAction(
             nameof(GetById),
             new { id = task.Id },
-            TaskMapping.ToResponse(task));
+            TaskMapping.ToResponse(task));  
     }
 
     /// <summary>

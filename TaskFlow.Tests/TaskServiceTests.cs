@@ -1,4 +1,5 @@
 using TaskFlow.Api.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace TaskFlow.Tests;
@@ -27,7 +28,7 @@ public class TaskServiceTests
     [Fact]
     public void Create_AddsTask_AndReturnsIt()
     {
-        var service = new TaskService();
+        var service = new TaskService(NullLogger<TaskService>.Instance);
 
         var task = service.Create("Test title", "Test description");
 
@@ -48,7 +49,7 @@ public class TaskServiceTests
     [Fact]
     public void Complete_WhenTaskExists_MarksCompleted()
     {
-        var service = new TaskService();
+        var service = new TaskService(NullLogger<TaskService>.Instance);
         var task = service.Create("Title", null);
 
         var result = service.Complete(task.Id);
@@ -68,7 +69,7 @@ public class TaskServiceTests
     [Fact]
     public void Complete_WhenTaskMissing_ReturnsFalse()
     {
-        var service = new TaskService();
+        var service = new TaskService(NullLogger<TaskService>.Instance);
 
         var result = service.Complete(Guid.NewGuid());
 

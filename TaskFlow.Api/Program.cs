@@ -8,9 +8,16 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 
-// Register TaskService as a Singleton because it maintains in-memory state.
-// A single instance must persist for the lifetime of the application.
-builder.Services.AddSingleton<ITaskService, TaskService>();
+// Register TaskService with a Scoped lifetime.
+// Each HTTP request receives its own instance.
+//
+// This aligns with typical application service patterns and prepares the
+// service for future EF Core integration, where DbContext is also Scoped
+// and not thread-safe.
+//
+// Previously this was Singleton when using shared in-memory state.
+// Scoped is the correct lifetime for database-backed services.
+builder.Services.AddScoped<ITaskService, TaskService>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -27,7 +34,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthorization();
 

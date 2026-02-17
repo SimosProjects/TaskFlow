@@ -5,47 +5,48 @@ namespace TaskFlow.Api.Services;
 /// <summary>
 /// In-memory implementation of <see cref="ITaskService"/>.
 /// 
-/// This service encapsulates business logic related to task management.
-/// It is intentionally registered as a Singleton because it maintains
-/// in-memory state for the lifetime of the application.
+/// This service encapsulates task-related use cases.
+/// It is registered as Scoped to match typical production patterns and to
+/// prepare for EF Core integration (DbContext is Scoped and not thread-safe).
 /// 
+/// Note: with an in-memory list, Scoped lifetime means tasks will not persist
+/// across separate HTTP requests. This is expected until a database is added.
 /// </summary>
 public class TaskService : ITaskService
 {
-    // Lock object guarding the in-memory task store.
-    // ASP.NET Core processes requests concurrently, and because this
-    // service is registered as a Singleton, shared state must be synchronized.
-    private readonly object _gate = new();
-
-
     // In-memory storage for tasks.
-    // Because this service is registered as a Singleton,
-    // this list persists for the lifetime of the application.
+    // With a Scoped lifetime, this list exists only for the duration of a single request.
     private readonly List<TaskItem> _tasks = new();
+
+    private readonly ILogger<TaskService> _logger;
+
+    /// <summary>
+    /// Constructs the TaskService with required dependencies.
+    /// 
+    /// ILogger is injected via dependency injection to enable structured,
+    /// centralized logging without coupling the service to a specific
+    /// logging implementation.
+    /// 
+    /// ASP.NET Core provides ILogger&lt;T&gt; as a built-in DI service.
+    /// </summary>
+    public TaskService(ILogger<TaskService> logger)
+    {
+        _logger = logger;
+
+        _logger.LogDebug("TaskService instance created: {InstanceId}", GetHashCode());
+    }
 
     /// <summary>
     /// Retrieves all tasks currently stored in memory.
     /// Returns a snapshot to avoid exposing internal mutable state.
     /// </summary>
-    public IEnumerable<TaskItem> GetAll()
-    {
-        lock (_gate)
-        {
-            return _tasks.ToList();
-        }
-    }
+    public IEnumerable<TaskItem> GetAll() => _tasks.ToList();
 
     /// <summary>
     /// Retrieves a task by its unique identifier.
     /// Returns null when no matching task exists.
     /// </summary>
-    public TaskItem? GetById(Guid id)
-    {
-        lock (_gate)
-        {
-            return _tasks.FirstOrDefault(t => t.Id == id);
-        }
-    }
+    public TaskItem? GetById(Guid id) => _tasks.FirstOrDefault(t => t.Id == id);
 
     /// <summary>
     /// Creates a new task and stores it in memory.
@@ -55,11 +56,9 @@ public class TaskService : ITaskService
     {
         var task = new TaskItem(title, description);
 
-        lock (_gate)
-        {
-            // Business decision: tasks are stored immediately upon creation.
-            _tasks.Add(task);
-        }
+        _tasks.Add(task);
+
+        _logger.LogInformation("Task created with Id {TaskId}", task.Id);
 
         return task;
     }
@@ -70,16 +69,17 @@ public class TaskService : ITaskService
     /// </summary>
     public bool Complete(Guid id)
     {
-        lock (_gate)
+        var task = _tasks.FirstOrDefault(t => t.Id == id);
+        if (task is null)
         {
-            var task = _tasks.FirstOrDefault(t => t.Id == id);
-            if (task is null)
-                return false;
-
-            // Business behavior is expressed through the domain model.
-            task.MarkComplete();
-
-            return true;
+            _logger.LogWarning("Attempted to complete non-existent task {TaskId}", id);
+            return false;
         }
+
+        task.MarkComplete();
+
+        _logger.LogInformation("Task {TaskId} marked as completed.", id);
+
+        return true;
     }
 }
