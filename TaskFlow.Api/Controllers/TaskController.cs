@@ -50,6 +50,7 @@ public class TasksController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(TaskResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public ActionResult<TaskResponse> Create([FromBody] CreateTaskRequest request)
     {
@@ -58,7 +59,7 @@ public class TasksController : ControllerBase
         return CreatedAtAction(
             nameof(GetById),
             new { id = task.Id },
-            TaskMapping.ToResponse(task));  
+            TaskMapping.ToResponse(task));
     }
 
     /// <summary>

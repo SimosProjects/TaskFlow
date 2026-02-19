@@ -5,6 +5,7 @@ namespace TaskFlow.Api.DTOs;
 public class CreateTaskRequest
 {
     [Required]
+    [MinLength(1)]
     [MaxLength(200)]
     public string Title { get; set; } = string.Empty;
 

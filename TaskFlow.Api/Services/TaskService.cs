@@ -58,7 +58,7 @@ public class TaskService : ITaskService
 
         _tasks.Add(task);
 
-        _logger.LogInformation("Task created with Id {TaskId}", task.Id);
+        //_logger.LogInformation("Task created with Id {TaskId}", task.Id);
 
         return task;
     }
