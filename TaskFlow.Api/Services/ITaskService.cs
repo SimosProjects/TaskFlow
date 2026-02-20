@@ -1,4 +1,4 @@
-using TaskFlow.Api.Domain;
+using TaskFlow.Api.DTOs;
 
 namespace TaskFlow.Api.Services;
 
@@ -11,22 +11,22 @@ public interface ITaskService
     /// <summary>
     /// Retrieves a snapshot of all tasks.
     /// </summary>
-    IEnumerable<TaskItem> GetAll();
+    Task<IReadOnlyList<TaskResponse>> GetAllAsync(CancellationToken ct = default);
 
     /// <summary>
     /// Retrieves a task by its unique identifier.
     /// Returns null when no matching task exists.
     /// </summary>
-    TaskItem? GetById(Guid id);
+    Task<TaskResponse?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>
     /// Creates a new task with the provided title and optional description.
     /// </summary>
-    TaskItem Create(string title, string? description);
+    Task<TaskResponse> CreateAsync(CreateTaskRequest request, CancellationToken ct = default);
 
     /// <summary>
     /// Marks a task as completed.
     /// Returns false when the task does not exist.
     /// </summary>
-    bool Complete(Guid id);
+    Task<bool> CompleteAsync(Guid id, CancellationToken ct = default);
 }

@@ -1,6 +1,8 @@
 
 using TaskFlow.Api.Services;
 using TaskFlow.Api.Middleware;
+using Microsoft.EntityFrameworkCore;
+using TaskFlow.Api.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +24,13 @@ builder.Services.AddScoped<ITaskService, TaskService>();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Registers the EF Core DbContext using PostgreSQL.
+// Scoped lifetime ensures one DbContext instance per HTTP request.
+builder.Services.AddDbContext<TaskFlowDbContext>(options =>
+{
+    options.UseNpgsql(builder.Configuration.GetConnectionString("TaskFlowDb"));
+});
 
 var app = builder.Build();
 

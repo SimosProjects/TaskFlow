@@ -13,6 +13,15 @@ public class TaskItem
     public DateTime CreatedAtUtc { get; private set; }
 
     /// <summary>
+    /// Parameterless constructor required by EF Core for entity materialization.
+    /// Kept protected to prevent invalid construction outside the ORM.
+    /// </summary>
+    protected TaskItem()
+    {
+        Title = null!;
+    }
+
+    /// <summary>
     /// Creates a new task item.
     /// Invariants are enforced here so an invalid TaskItem cannot be constructed.
     /// </summary>

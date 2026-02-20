@@ -1,75 +1,80 @@
+using Microsoft.EntityFrameworkCore;
 using TaskFlow.Api.Domain;
+using TaskFlow.Api.DTOs;
+using TaskFlow.Api.Infrastructure;
 
 namespace TaskFlow.Api.Services;
 
 /// <summary>
-/// In-memory implementation of <see cref="ITaskService"/>.
-/// 
-/// This service encapsulates task-related use cases.
-/// It is registered as Scoped to match typical production patterns and to
-/// prepare for EF Core integration (DbContext is Scoped and not thread-safe).
-/// 
-/// Note: with an in-memory list, Scoped lifetime means tasks will not persist
-/// across separate HTTP requests. This is expected until a database is added.
+/// EF Core implementation of <see cref="ITaskService"/> backed by PostgreSQL.
+/// Keeps controllers thin while centralizing data access + use-case logic.
 /// </summary>
-public class TaskService : ITaskService
+public sealed class TaskService : ITaskService
 {
-    // In-memory storage for tasks.
-    // With a Scoped lifetime, this list exists only for the duration of a single request.
-    private readonly List<TaskItem> _tasks = new();
-
+    private readonly TaskFlowDbContext _db;
     private readonly ILogger<TaskService> _logger;
 
     /// <summary>
-    /// Constructs the TaskService with required dependencies.
-    /// 
-    /// ILogger is injected via dependency injection to enable structured,
-    /// centralized logging without coupling the service to a specific
-    /// logging implementation.
-    /// 
-    /// ASP.NET Core provides ILogger&lt;T&gt; as a built-in DI service.
+    /// Constructs the service with the EF Core DbContext and logger.
+    /// DbContext is Scoped (per-request) and not thread-safe, matching typical production patterns.
     /// </summary>
-    public TaskService(ILogger<TaskService> logger)
+    public TaskService(TaskFlowDbContext db, ILogger<TaskService> logger)
     {
+        _db = db;
         _logger = logger;
-
-        _logger.LogDebug("TaskService instance created: {InstanceId}", GetHashCode());
     }
 
     /// <summary>
-    /// Retrieves all tasks currently stored in memory.
-    /// Returns a snapshot to avoid exposing internal mutable state.
+    /// Retrieves all tasks from the database as read-only DTOs.
+    /// Uses AsNoTracking to avoid change-tracking overhead for read operations.
     /// </summary>
-    public IEnumerable<TaskItem> GetAll() => _tasks.ToList();
-
-    /// <summary>
-    /// Retrieves a task by its unique identifier.
-    /// Returns null when no matching task exists.
-    /// </summary>
-    public TaskItem? GetById(Guid id) => _tasks.FirstOrDefault(t => t.Id == id);
-
-    /// <summary>
-    /// Creates a new task and stores it in memory.
-    /// Domain object construction enforces invariants.
-    /// </summary>
-    public TaskItem Create(string title, string? description)
+    public async Task<IReadOnlyList<TaskResponse>> GetAllAsync(CancellationToken ct = default)
     {
-        var task = new TaskItem(title, description);
+        var tasks = await _db.Tasks
+            .AsNoTracking()
+            .OrderByDescending(t => t.CreatedAtUtc)
+            .ToListAsync(ct);
 
-        _tasks.Add(task);
-
-        //_logger.LogInformation("Task created with Id {TaskId}", task.Id);
-
-        return task;
+        return tasks.Select(MapToResponse).ToList();
     }
 
     /// <summary>
-    /// Marks a task as completed.
-    /// Returns false when the task does not exist.
+    /// Retrieves a task by its identifier or returns null when not found.
+    /// Uses AsNoTracking since this operation does not modify the entity.
     /// </summary>
-    public bool Complete(Guid id)
+    public async Task<TaskResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
-        var task = _tasks.FirstOrDefault(t => t.Id == id);
+        var task = await _db.Tasks
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == id, ct);
+
+        return task is null ? null : MapToResponse(task);
+    }
+
+    /// <summary>
+    /// Creates a new task and persists it to the database.
+    /// Domain object construction enforces invariants at the boundary.
+    /// </summary>
+    public async Task<TaskResponse> CreateAsync(CreateTaskRequest request, CancellationToken ct = default)
+    {
+        var task = new TaskItem(request.Title, request.Description);
+
+        _db.Tasks.Add(task);
+        await _db.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Task created with Id {TaskId}", task.Id);
+
+        return MapToResponse(task);
+    }
+
+    /// <summary>
+    /// Marks a task as completed and persists the change.
+    /// Returns false when no matching task exists.
+    /// </summary>
+    public async Task<bool> CompleteAsync(Guid id, CancellationToken ct = default)
+    {
+        // Intentionally tracked query: we are modifying the entity and persisting changes.
+        var task = await _db.Tasks.FirstOrDefaultAsync(t => t.Id == id, ct);
         if (task is null)
         {
             _logger.LogWarning("Attempted to complete non-existent task {TaskId}", id);
@@ -77,9 +82,23 @@ public class TaskService : ITaskService
         }
 
         task.MarkComplete();
+        await _db.SaveChangesAsync(ct);
 
         _logger.LogInformation("Task {TaskId} marked as completed.", id);
-
         return true;
     }
+
+    /// <summary>
+    /// Maps a domain <see cref="TaskItem"/> entity to a <see cref="TaskResponse"/> DTO.
+    /// This maintains a strict boundary between domain models and API response contracts.
+    /// </summary>
+    private static TaskResponse MapToResponse(TaskItem task) =>
+        new TaskResponse
+        {
+            Id = task.Id,
+            Title = task.Title,
+            Description = task.Description,
+            IsCompleted = task.IsCompleted,
+            CreatedAtUtc = task.CreatedAtUtc
+        };
 }

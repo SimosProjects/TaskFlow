@@ -24,10 +24,13 @@ public class TasksController : ControllerBase
     /// This endpoint is intentionally thin; business logic and data access belong in the service layer.
     /// </summary>
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<TaskResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IReadOnlyList<TaskResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-    public ActionResult<IEnumerable<TaskResponse>> GetAll()
-        => Ok(_taskService.GetAll().Select(TaskMapping.ToResponse));
+    public async Task<ActionResult<IReadOnlyList<TaskResponse>>> GetAll(CancellationToken ct)
+    {
+        var tasks = await _taskService.GetAllAsync(ct);
+        return Ok(tasks);
+    }
 
     /// <summary>
     /// Retrieves a single task by its identifier.
@@ -37,10 +40,10 @@ public class TasksController : ControllerBase
     [ProducesResponseType(typeof(TaskResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-    public ActionResult<TaskResponse> GetById(Guid id)
+    public async Task<ActionResult<TaskResponse>> GetById(Guid id, CancellationToken ct)
     {
-        var task = _taskService.GetById(id);
-        return task is null ? NotFound() : Ok(TaskMapping.ToResponse(task));
+        var task = await _taskService.GetByIdAsync(id, ct);
+        return task is null ? NotFound() : Ok(task);
     }
 
     /// <summary>
@@ -52,14 +55,14 @@ public class TasksController : ControllerBase
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-    public ActionResult<TaskResponse> Create([FromBody] CreateTaskRequest request)
+    public async Task<ActionResult<TaskResponse>> Create([FromBody] CreateTaskRequest request, CancellationToken ct)
     {
-        var task = _taskService.Create(request.Title, request.Description);
+        var created = await _taskService.CreateAsync(request, ct);
 
         return CreatedAtAction(
             nameof(GetById),
-            new { id = task.Id },
-            TaskMapping.ToResponse(task));
+            new { id = created.Id },
+            created);
     }
 
     /// <summary>
@@ -69,6 +72,9 @@ public class TasksController : ControllerBase
     [HttpPost("{id:guid}/complete")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult Complete(Guid id)
-        => _taskService.Complete(id) ? NoContent() : NotFound();
+    public async Task<IActionResult> Complete(Guid id, CancellationToken ct)
+    {
+        var completed = await _taskService.CompleteAsync(id, ct);
+        return completed ? NoContent() : NotFound();
+    }
 }
