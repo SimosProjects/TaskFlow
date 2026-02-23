@@ -10,6 +10,16 @@ This project serves as:
 
 ---
 
+## Commands
+
+### Build
+docker build -t taskflow-api:dev .
+
+### Run (Dev for Swagger)
+docker run --rm -p 8080:8080 -e ASPNETCORE_ENVIRONMENT=Development taskflow-api:dev
+
+---
+
 ## Tech Stack
 
 - .NET 8 (LTS)
