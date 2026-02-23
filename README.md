@@ -18,6 +18,22 @@ docker build -t taskflow-api:dev .
 ### Run (Dev for Swagger)
 docker run --rm -p 8080:8080 -e ASPNETCORE_ENVIRONMENT=Development taskflow-api:dev
 
+### Run locally (Docker Compose)
+cp .env.example .env
+docker compose up --build
+
+Swagger: http://localhost:8080/swagger
+
+### View status
+docker compose ps
+
+### Tail logs
+docker compose logs -f api
+docker compose logs -f postgres
+
+### Reset everything (deletes DB volume)
+docker compose down -v
+
 ---
 
 ## Tech Stack
