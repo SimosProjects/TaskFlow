@@ -44,10 +44,13 @@ docker compose down -v
 - xUnit (unit testing)
 - Global exception middleware
 - RFC 7807 ProblemDetails error responses
+- EF Core 8
+- PostgreSQL
+- Npgsql
+- Docker (multi-stage build)
+- docker-compose
 
 Planned next steps:
-- EF Core + PostgreSQL
-- Docker + docker-compose
 - Azure deployment
 - CI/CD with GitHub Actions
 
@@ -56,8 +59,7 @@ Planned next steps:
 ## Architecture Overview
 
 The application follows a layered design:
-- Controllers → Services (Application Layer) → Domain
-
+- Controllers → Services → Domain → Infrastructure (EF Core)
 
 ### Controllers
 - Handle HTTP concerns only
@@ -69,7 +71,7 @@ The application follows a layered design:
 - Orchestrate use cases (Create, Complete, Retrieve)
 - Encapsulate business logic
 - Registered via dependency injection
-- In-memory implementation for Phase 1
+- Database-backed implementation using EF Core and PostgreSQL Registered with Scoped lifetime (aligned with DbContext)
 
 ### Domain
 - Framework-independent
@@ -80,6 +82,13 @@ The application follows a layered design:
 - Centralized exception handling
 - Returns standardized RFC 7807 `ProblemDetails`
 - Distinguishes between client errors (400) and server errors (500)
+
+### Database & Containerization
+- PostgreSQL runs in a dedicated container
+- Internal Docker networking (Host=postgres)
+- Named volume for persistent storage
+- Environment-based configuration via .env
+- Multi-stage Dockerfile for optimized runtime image
 
 ---
 
@@ -94,16 +103,6 @@ The API uses centralized exception middleware to ensure:
   - Unexpected server failures (500)
 
 DTO validation is handled automatically by `[ApiController]`.
-
----
-
-## Concurrency Considerations
-
-The current implementation uses an in-memory task store.
-
-Because the service is registered as a Singleton, access to the shared list is synchronized to ensure thread safety under concurrent requests.
-
-In a production environment, this would be replaced by a database-backed implementation with Scoped lifetime.
 
 ---
 
