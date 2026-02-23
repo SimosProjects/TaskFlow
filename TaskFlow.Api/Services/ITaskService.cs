@@ -9,9 +9,9 @@ namespace TaskFlow.Api.Services;
 public interface ITaskService
 {
     /// <summary>
-    /// Retrieves a snapshot of all tasks.
+    /// Retrieves a page of tasks ordered by most recent first, with optional filtering.
     /// </summary>
-    Task<IReadOnlyList<TaskResponse>> GetAllAsync(CancellationToken ct = default);
+    Task<PagedResult<TaskResponse>> GetAllAsync(TaskQueryParameters query, CancellationToken ct = default);
 
     /// <summary>
     /// Retrieves a task by its unique identifier.

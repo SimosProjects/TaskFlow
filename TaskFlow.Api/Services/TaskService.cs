@@ -25,30 +25,66 @@ public sealed class TaskService : ITaskService
     }
 
     /// <summary>
-    /// Retrieves all tasks from the database as read-only DTOs.
-    /// Uses AsNoTracking to avoid change-tracking overhead for read operations.
+    /// Retrieves a page of tasks from the database as read-only DTOs.
+    /// Applies optional filters, enforces paging guardrails, and returns paging metadata.
     /// </summary>
-    public async Task<IReadOnlyList<TaskResponse>> GetAllAsync(CancellationToken ct = default)
+    public async Task<PagedResult<TaskResponse>> GetAllAsync(TaskQueryParameters query, CancellationToken ct = default)
     {
-        var tasks = await _db.Tasks
-            .AsNoTracking()
+        var (page, pageSize) = NormalizePaging(query.Page, query.PageSize);
+        var search = NormalizeSearch(query.Search);
+
+        IQueryable<TaskItem> tasksQuery = _db.Tasks.AsNoTracking();
+
+        if (query.IsCompleted is not null)
+        {
+            tasksQuery = tasksQuery.Where(t => t.IsCompleted == query.IsCompleted.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            // PostgreSQL-friendly, case-insensitive substring search.
+            tasksQuery = tasksQuery.Where(t => EF.Functions.ILike(t.Title, $"%{search}%"));
+        }
+
+        // Count is computed on the filtered query (before paging) for accurate metadata.
+        var totalCount = await tasksQuery.CountAsync(ct);
+
+        var items = await tasksQuery
             .OrderByDescending(t => t.CreatedAtUtc)
+            .ThenByDescending(t => t.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(t => new TaskResponse
+            {
+                Id = t.Id,
+                Title = t.Title,
+                Description = t.Description,
+                IsCompleted = t.IsCompleted,
+                CreatedAtUtc = t.CreatedAtUtc
+            })
             .ToListAsync(ct);
 
-        return tasks.Select(MapToResponse).ToList();
+        return PagedResult<TaskResponse>.Create(items, page, pageSize, totalCount);
     }
 
     /// <summary>
     /// Retrieves a task by its identifier or returns null when not found.
-    /// Uses AsNoTracking since this operation does not modify the entity.
+    /// Uses AsNoTracking and server-side projection to avoid materializing a full entity.
     /// </summary>
     public async Task<TaskResponse?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
-        var task = await _db.Tasks
+        return await _db.Tasks
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == id, ct);
-
-        return task is null ? null : MapToResponse(task);
+            .Where(t => t.Id == id)
+            .Select(t => new TaskResponse
+            {
+                Id = t.Id,
+                Title = t.Title,
+                Description = t.Description,
+                IsCompleted = t.IsCompleted,
+                CreatedAtUtc = t.CreatedAtUtc
+            })
+            .FirstOrDefaultAsync(ct);
     }
 
     /// <summary>
@@ -101,4 +137,28 @@ public sealed class TaskService : ITaskService
             IsCompleted = task.IsCompleted,
             CreatedAtUtc = task.CreatedAtUtc
         };
+
+    /// <summary>
+    /// Normalizes paging inputs to prevent unbounded queries and to keep API behavior predictable.
+    /// </summary>
+    private static (int Page, int PageSize) NormalizePaging(int page, int pageSize)
+    {
+        const int DefaultPage = 1;
+        const int DefaultPageSize = 20;
+        const int MaxPageSize = 100;
+
+        var normalizedPage = page < 1 ? DefaultPage : page;
+        var normalizedPageSize = pageSize < 1 ? DefaultPageSize : Math.Min(pageSize, MaxPageSize);
+
+        return (normalizedPage, normalizedPageSize);
+    }
+
+    /// <summary>
+    /// Normalizes search input to keep query behavior consistent and avoid accidental whitespace-only filters.
+    /// </summary>
+    private static string? NormalizeSearch(string? search)
+    {
+        var trimmed = search?.Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
 }

@@ -20,16 +20,16 @@ public class TasksController : ControllerBase
     }
 
     /// <summary>
-    /// Retrieves all tasks.
-    /// This endpoint is intentionally thin; business logic and data access belong in the service layer.
+    /// Retrieves tasks ordered by most recent first.
+    /// Supports pagination and optional filters via query parameters.
     /// </summary>
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<TaskResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedResult<TaskResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<IReadOnlyList<TaskResponse>>> GetAll(CancellationToken ct)
+    public async Task<ActionResult<PagedResult<TaskResponse>>> GetAll([FromQuery] TaskQueryParameters query, CancellationToken ct)
     {
-        var tasks = await _taskService.GetAllAsync(ct);
-        return Ok(tasks);
+        var result = await _taskService.GetAllAsync(query, ct);
+        return Ok(result);
     }
 
     /// <summary>
