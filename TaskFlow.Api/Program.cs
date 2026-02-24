@@ -1,52 +1,45 @@
-
-using TaskFlow.Api.Services;
-using TaskFlow.Api.Middleware;
 using Microsoft.EntityFrameworkCore;
 using TaskFlow.Api.Infrastructure;
+using TaskFlow.Api.Middleware;
+using TaskFlow.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 builder.Services.AddControllers();
 
-// Register TaskService with a Scoped lifetime.
-// Each HTTP request receives its own instance.
-//
-// This aligns with typical application service patterns and prepares the
-// service for future EF Core integration, where DbContext is also Scoped
-// and not thread-safe.
-//
-// Previously this was Singleton when using shared in-memory state.
-// Scoped is the correct lifetime for database-backed services.
-builder.Services.AddScoped<ITaskService, TaskService>();
-
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// Swagger services
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Registers the EF Core DbContext using PostgreSQL.
-// Scoped lifetime ensures one DbContext instance per HTTP request.
-builder.Services.AddDbContext<TaskFlowDbContext>(options =>
+// DbContext setup
+var connString = builder.Configuration.GetConnectionString("TaskFlowDb");
+if (string.IsNullOrWhiteSpace(connString))
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("TaskFlowDb"));
-});
+    builder.Services.AddDbContext<TaskFlowDbContext>(o => o.UseInMemoryDatabase("TaskFlow"));
+}
+else
+{
+    builder.Services.AddDbContext<TaskFlowDbContext>(o => o.UseNpgsql(connString));
+}
+
+// Application services
+builder.Services.AddScoped<ITaskService, TaskService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Enable Swagger
+var enableSwagger = app.Configuration.GetValue<bool>("EnableSwagger");
+if (enableSwagger || app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+// Centralized exception handling
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
+// Explicit routing keeps behavior consistent across hosting environments (including reverse proxies)
+app.UseRouting();
 
 app.UseAuthorization();
 
