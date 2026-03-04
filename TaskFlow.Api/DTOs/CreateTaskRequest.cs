@@ -9,6 +9,6 @@ public class CreateTaskRequest
     [MaxLength(200)]
     public string Title { get; set; } = string.Empty;
 
-    [MaxLength(2000)]
+    [MaxLength(1000)]
     public string? Description { get; set; }
 }

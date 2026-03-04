@@ -1,6 +1,41 @@
 @TaskFlow.Api_HostAddress = http://localhost:5099
 
-GET {{TaskFlow.Api_HostAddress}}/weatherforecast/
+### Get all tasks (default page)
+GET {{TaskFlow.Api_HostAddress}}/api/tasks
 Accept: application/json
+
+###
+
+### Get all tasks — filter to incomplete only
+GET {{TaskFlow.Api_HostAddress}}/api/tasks?isCompleted=false&page=1&pageSize=20
+Accept: application/json
+
+###
+
+### Get all tasks — search by title
+GET {{TaskFlow.Api_HostAddress}}/api/tasks?search=my+task
+Accept: application/json
+
+###
+
+### Get a single task by ID (replace with a real GUID after creating one)
+GET {{TaskFlow.Api_HostAddress}}/api/tasks/00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+###
+
+### Create a new task
+POST {{TaskFlow.Api_HostAddress}}/api/tasks
+Content-Type: application/json
+
+{
+  "title": "My first task",
+  "description": "Optional description here"
+}
+
+###
+
+### Mark a task as complete (replace with a real GUID)
+POST {{TaskFlow.Api_HostAddress}}/api/tasks/00000000-0000-0000-0000-000000000000/complete
 
 ###

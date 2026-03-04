@@ -90,6 +90,7 @@ public sealed class TaskService : ITaskService
     /// <summary>
     /// Creates a new task and persists it to the database.
     /// Domain object construction enforces invariants at the boundary.
+    /// Mapping delegated to TaskMapping.ToResponse() — the single authoritative mapping path.
     /// </summary>
     public async Task<TaskResponse> CreateAsync(CreateTaskRequest request, CancellationToken ct = default)
     {
@@ -100,7 +101,7 @@ public sealed class TaskService : ITaskService
 
         _logger.LogInformation("Task created with Id {TaskId}", task.Id);
 
-        return MapToResponse(task);
+        return task.ToResponse();
     }
 
     /// <summary>
@@ -123,20 +124,6 @@ public sealed class TaskService : ITaskService
         _logger.LogInformation("Task {TaskId} marked as completed.", id);
         return true;
     }
-
-    /// <summary>
-    /// Maps a domain <see cref="TaskItem"/> entity to a <see cref="TaskResponse"/> DTO.
-    /// This maintains a strict boundary between domain models and API response contracts.
-    /// </summary>
-    private static TaskResponse MapToResponse(TaskItem task) =>
-        new TaskResponse
-        {
-            Id = task.Id,
-            Title = task.Title,
-            Description = task.Description,
-            IsCompleted = task.IsCompleted,
-            CreatedAtUtc = task.CreatedAtUtc
-        };
 
     /// <summary>
     /// Normalizes paging inputs to prevent unbounded queries and to keep API behavior predictable.
