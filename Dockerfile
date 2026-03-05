@@ -17,8 +17,10 @@
     FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
     WORKDIR /app
     
-    # ASP.NET Core in containers should listen on a known port
-    #ENV ASPNETCORE_URLS=http://+:8080
+    # Defensive default: bind to 8080 inside the container regardless of what
+    # environment variables are passed at deploy time. Without this, omitting
+    # ASPNETCORE_URLS at deploy time causes the container to bind the wrong port silently.
+    ENV ASPNETCORE_URLS=http://+:8080
     
     # Sets environment to Production by default in container
     ENV ASPNETCORE_ENVIRONMENT=Production
@@ -27,4 +29,4 @@
     
     COPY --from=build /app/publish .
     
-    ENTRYPOINT ["dotnet", "TaskFlow.Api.dll"]
+    ENTRYPOINT ["dotnet", "TaskFlow.Api.dll"]    
